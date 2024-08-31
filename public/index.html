@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LED and LDR Control Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@100;200;300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f4;
+        color: #333;
+        margin: 0;
+        padding: 0;
+        font-family: "IBM Plex Sans Thai", sans-serif;
+      }
+
+      .container {
+        width: 60%;
+        margin: 0 auto;
+        text-align: center;
+        padding: 24px;
+        background-color: #fff;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        border-radius: 12px;
+        margin-top: 30px;
+      }
+
+      h1 {
+        margin-top: 20px;
+        color: #333;
+      }
+
+      .status {
+        margin: 20px 0;
+        font-size: 1.2em;
+      }
+
+      .switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+      }
+
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: 0.4s;
+        border-radius: 34px;
+      }
+
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.4s;
+        border-radius: 50%;
+      }
+
+      input:checked + .slider {
+        background-color: #21f360;
+      }
+
+      input:checked + .slider:before {
+        transform: translateX(26px);
+      }
+
+      #ldr-mode-text {
+        font-weight: 500;
+        font-size: 1.2em;
+      }
+
+      .button-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 20px;
+        gap: 16px;
+      }
+
+      .toggle-button {
+        width: 100%;
+        background-color: #f44336; /* Red for 'off' */
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 24px 0;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        outline: none;
+        font-weight: 600;
+      }
+
+      .toggle-button.active {
+        background-color: #4caf50; /* Green for 'on' */
+      }
+
+      .toggle-button:focus {
+        outline: none;
+      }
+
+      .toggle-button:disabled {
+        background-color: #f4f4f4;
+        color: #666666;
+        cursor: not-allowed;
+      }
+
+      .history {
+        margin-top: 30px;
+        text-align: center;
+      }
+
+      .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+
+      .history-table th,
+      .history-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: center;
+      }
+
+      .history-table td {
+        font-weight: 500;
+      }
+
+      .history-table th {
+        background-color: #2196f3;
+        color: white;
+      }
+
+      .history-table tr:nth-child(even) {
+        background-color: #f2f2f2;
+      }
+
+      .history-table tr:hover {
+        background-color: #ddd;
+      }
+
+      .card-container {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+      }
+
+      .card-item {
+        background-color: #f4f4f4;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+
+      #current-time {
+        font-size: 2em;
+        font-weight: bold;
+        color: #706363;
+      }
+
+      .chart-container {
+        margin-top: 50px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card-container">
+        <div class="card-item">
+          <div id="current-time"></div>
+        </div>
+        <div class="card-item">
+          <label class="switch">
+            <input type="checkbox" id="ldr-mode-switch" />
+            <span class="slider"></span>
+          </label>
+          <p id="ldr-mode-text"></p>
+        </div>
+      </div>
+
+      <div class="button-container">
+        <button id="toggle-led1" class="toggle-button">LED1 Off</button>
+        <button id="toggle-led2" class="toggle-button">LED2 Off</button>
+      </div>
+
+      <!-- Display History -->
+      <div class="history">
+        <h2>ประวัติการเปิดไฟ</h2>
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>เวลา</th>
+              <th>ค่า LDR</th>
+              <th>ค่าความสว่าง</th>
+              <th>ไฟดวงที่ 1</th>
+              <th>ไฟดวงที่ 2</th>
+            </tr>
+          </thead>
+          <tbody id="history-table-body"></tbody>
+        </table>
+      </div>
+
+      <div class="chart-container">
+        <h2>กราฟข้อมูล LDR</h2>
+        <canvas id="data-chart"></canvas>
+      </div>
+    </div>
+
+    <script>
+      const led1Button = document.getElementById("toggle-led1");
+      const led2Button = document.getElementById("toggle-led2");
+      let isLed1On = false;
+      let isLed2On = false;
+
+      const labels = [];
+      const dataPoints = [];
+
+      const chartCtx = document.getElementById("data-chart").getContext("2d");
+      const lineChart = new Chart(chartCtx, {
+        type: "line",
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: "LDR",
+              data: dataPoints,
+            },
+          ],
+        },
+        options: {
+          plugins: {
+            legend: false,
+          },
+          animation: {
+            duration: 200,
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: {
+                display: false,
+                autoSkip: true,
+              },
+              grid: {
+                display: false,
+              },
+            },
+            y: {
+              beginAtZero: true,
+              grid: {
+                display: false,
+              },
+              type: "linear",
+            },
+          },
+        },
+      });
+
+      // ดึงข้อมูลจาก API และอัพเดทค่าบนหน้าเว็บ
+      function fetchData() {
+        fetch("/api/data")
+          .then((response) => response.json())
+          .then((datas) => {
+            updateHistory(datas);
+          })
+          .catch((error) => console.error("Error fetching data:", error));
+      }
+
+      function fetchChart() {
+        fetch("/api/data")
+          .then((response) => response.json())
+          .then((datas) => {
+            if (labels.length >= 15) {
+              dataPoints.shift();
+              labels.shift();
+            }
+
+            datas.forEach((data) => {
+              dataPoints.push(data.ldr);
+              labels.push(new Date(data.timestamp).toLocaleTimeString());
+            });
+
+            lineChart.update();
+          })
+          .catch((error) => console.error("Error fetching data:", error));
+      }
+
+      function fetchPowerStatus() {
+        fetch("/api/power")
+          .then((response) => response.json())
+          .then((data) => {
+            const ldrModeSwitch = document.getElementById("ldr-mode-switch");
+            ldrModeSwitch.checked = data.power;
+            document.getElementById(
+              "ldr-mode-text"
+            ).textContent = `โหมด LDR : ${data.power ? "เปิด" : "ปิด"}`;
+            updateButtonStates(data.power);
+          })
+          .catch((error) => console.error("Error fetching data:", error));
+      }
+
+      // สลับสถานะของ โหมด LDR
+      function toggleLdrMode() {
+        const ldrModeSwitch = document.getElementById("ldr-mode-switch");
+        const isLdrModeOn = ldrModeSwitch.checked;
+        const modeText = isLdrModeOn ? "ldr-on" : "ldr-off";
+
+        document.getElementById("ldr-mode-text").textContent = `โหมด LDR : ${
+          isLdrModeOn ? "เปิด" : "ปิด"
+        }`;
+
+        updateButtonStates(isLdrModeOn);
+
+        fetch(`/publish`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ message: modeText }),
+        }).catch((error) => console.error("Error:", error));
+
+        fetch("/api/power", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ power: isLdrModeOn }),
+        }).catch((error) =>
+          console.error("Error updating power status:", error)
+        );
+      }
+
+      // อัพเดทข้อมูลประวัติการเปิดไฟ
+      function updateHistory(data) {
+        const tableBody = document.getElementById("history-table-body");
+        tableBody.innerHTML = "";
+
+        data.forEach((entry) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${new Date(entry.timestamp).toLocaleString()}</td>
+            <td>${entry.ldr}</td>
+            <td>${entry.potentio}</td>
+            <td>${entry.led1 ? "เปิด" : "ปิด"}</td>
+            <td>${entry.led2 ? "เปิด" : "ปิด"}</td>
+          `;
+          tableBody.appendChild(row);
+        });
+      }
+
+      function updateButtonStates(ldrMode) {
+        const isEnabled = !ldrMode;
+        led1Button.disabled = !isEnabled;
+        led2Button.disabled = !isEnabled;
+        if (!isEnabled) {
+          led1Button.classList.remove("active");
+          led1Button.textContent = "LED1 Off";
+          led2Button.classList.remove("active");
+          led2Button.textContent = "LED2 Off";
+          isLed1On = false;
+          isLed2On = false;
+        }
+      }
+
+      led1Button.addEventListener("click", () => {
+        isLed1On = !isLed1On;
+        if (isLed1On) {
+          led1Button.textContent = "LED1 On";
+          led1Button.classList.add("active");
+          updateLed("led1-on");
+        } else {
+          led1Button.textContent = "LED1 Off";
+          led1Button.classList.remove("active");
+          updateLed("led1-off");
+        }
+      });
+
+      led2Button.addEventListener("click", () => {
+        isLed2On = !isLed2On;
+        if (isLed2On) {
+          led2Button.textContent = "LED2 On";
+          led2Button.classList.add("active");
+          updateLed("led2-on");
+        } else {
+          led2Button.textContent = "LED2 Off";
+          led2Button.classList.remove("active");
+          updateLed("led2-off");
+        }
+      });
+
+      function updateLed(command) {
+        fetch("/publish", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ message: command }),
+        })
+          .then((response) => response.json())
+          .then((data) => console.log("Success:", data))
+          .catch((error) => console.error("Error:", error));
+      }
+
+      function updateTime() {
+        const now = new Date();
+        const hours = now.getHours().toString().padStart(2, "0");
+        const minutes = now.getMinutes().toString().padStart(2, "0");
+        const seconds = now.getSeconds().toString().padStart(2, "0");
+        const timeString = `${hours}:${minutes}:${seconds}`;
+
+        document.getElementById("current-time").textContent = timeString;
+      }
+
+      // Update the time every second
+      setInterval(updateTime, 1000);
+
+      // Initial call to display the time immediately
+      updateTime();
+
+      // เรียก fetchData ทุก 5 วินาทีเพื่ออัพเดทค่าบนหน้าเว็บอย่างต่อเนื่อง
+      setInterval(fetchData, 5000);
+
+      // เรียกใช้ฟังก์ชัน toggleLdrMode เมื่อคลิกที่สวิตช์
+      document
+        .getElementById("ldr-mode-switch")
+        .addEventListener("change", toggleLdrMode);
+
+      // เรียกใช้ fetchData และ fetchPowerStatus ทันทีเมื่อโหลดหน้าเว็บเสร็จ
+      fetchChart();
+      fetchData();
+      fetchPowerStatus();
+    </script>
+  </body>
+</html>
